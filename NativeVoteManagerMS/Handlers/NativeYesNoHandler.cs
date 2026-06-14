@@ -100,13 +100,7 @@ internal class NativeYesNoHandler : IVoteTypeHandler
             new(NoContent, _noVoters.AsReadOnly())
         }.AsReadOnly();
 
-        var winner = choices
-            .Where(c => c.Voters.Count > 0)
-            .OrderByDescending(c => c.Voters.Count)
-            .FirstOrDefault()
-            ?.Content;
-
-        return new VoteResult(choices, _participants.AsReadOnly(), winner);
+        return new VoteResult(choices, _participants.AsReadOnly(), YesContent);
     }
 
     public bool CheckPassCondition(VoteResult result) =>
