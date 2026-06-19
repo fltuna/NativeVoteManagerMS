@@ -1,6 +1,7 @@
 <Solution>
   <Project Path="NativeVoteExample\NativeVoteExample.csproj" Type="Classic C#" />
   <Project Path="NvmFPMCompat\NvmFPMCompat.csproj" Type="Classic C#" />
+  <Project Path="NvmWulingCompat\NvmWulingCompat.csproj" Type="Classic C#" />
   <Project Path="NativeVoteManagerMS.Shared\NativeVoteManagerMS.Shared.csproj" Type="Classic C#" />
   <Project Path="NativeVoteManagerMS\NativeVoteManagerMS.csproj" Type="Classic C#" />
 </Solution>

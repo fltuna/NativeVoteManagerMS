@@ -1,0 +1,12 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+    <ItemGroup>
+        <PackageReference Include="ModSharp.Sharp.Shared" Version="2.1.121" ExcludeAssets="runtime" />
+    </ItemGroup>
+
+    <ItemGroup>
+        <ProjectReference Include="..\NativeVoteManagerMS.Shared\NativeVoteManagerMS.Shared.csproj" />
+        <ProjectReference Include="..\..\Wuling\Wuling.Abstract\Wuling.Abstract.csproj" Private="false" />
+    </ItemGroup>
+
+</Project>
