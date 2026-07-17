@@ -1,0 +1,7 @@
+{
+    "Nvm.Chat.Prefix": "{green}[NVM]{white}",
+    "Nvm.Command.NoVoteInProgress": "当前没有正在进行的投票。",
+    "Nvm.Command.NoMultiChoiceVote": "当前没有正在进行的多选投票。",
+    "Nvm.Command.NotEnoughPermission": "{darkred}你没有取消投票的权限。",
+    "Nvm.Broadcast.Vote.Cancelled": "{lightgreen}{0}{white} 取消了投票。"
+}

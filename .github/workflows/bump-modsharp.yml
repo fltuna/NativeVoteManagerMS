@@ -32,17 +32,6 @@ jobs:
         NvmFPMCompat/NvmFPMCompat.csproj
       pr-labels: dependencies
 
-  bump-localizermanager:
-    uses: possession-community/modsharp-publish-action/.github/workflows/bump-nuget.yml@v1
-    permissions:
-      contents: write
-      pull-requests: write
-    with:
-      package-id: ModSharp.Sharp.Modules.LocalizerManager.Shared
-      csproj-paths: |
-        NativeVoteManagerMS/NativeVoteManagerMS.csproj
-      pr-labels: dependencies
-
   bump-menumanager:
     uses: possession-community/modsharp-publish-action/.github/workflows/bump-nuget.yml@v1
     permissions:

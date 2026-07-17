@@ -51,7 +51,10 @@ public class NvmWulingCompat : IModSharpModule
         nvm.SetDefaultMenuCompat(new WulingMenuCompat(wuling.Menu, wuling.Registry));
         nvm.SetDefaultPermissionCompat(new WulingPermissionCompat(wuling.Authority));
 
-        _logger.LogInformation("Registered Wuling menu and permission compat for NativeVoteManagerMS.");
+        var stringLocalizer = wuling.Localizer.CreateStringLocalizer(nvm.ModuleDirectory, appendLangDir: true);
+        nvm.SetLocalizer(new WulingLocalizerCompat(stringLocalizer));
+
+        _logger.LogInformation("Registered Wuling menu, permission and localizer compat for NativeVoteManagerMS.");
     }
 
     public void Shutdown()

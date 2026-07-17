@@ -3,7 +3,6 @@ using Microsoft.Extensions.Logging;
 using NativeVoteManagerMS.Handlers;
 using NativeVoteManagerMS.Shared;
 using NativeVoteManagerMS.Shared.Types;
-using Sharp.Modules.LocalizerManager.Shared;
 using Sharp.Shared;
 using Sharp.Shared.Definition;
 using Sharp.Shared.Enums;
@@ -13,11 +12,11 @@ using Sharp.Shared.Types;
 
 namespace NativeVoteManagerMS;
 
-public class NativeVoteManager(ISharedSystem sharedSystem, ILogger logger) : INativeVoteManager, IGameListener, IClientListener
+public class NativeVoteManager(ISharedSystem sharedSystem, ILogger logger, string moduleDirectory) : INativeVoteManager, IGameListener, IClientListener
 {
     private IMenuCompat? _defaultMenuCompat;
     private IPermissionCompat? _defaultPermissionCompat;
-    private ILocalizerManager? _localizerManager;
+    private INvmLocalizer? _localizer;
     private IVoteTypeHandler? _activeHandler;
     private Guid? _voteTimerId;
 
@@ -33,18 +32,19 @@ public class NativeVoteManager(ISharedSystem sharedSystem, ILogger logger) : INa
         logger.LogInformation($"Default permission compat has been set by {permissionCompat.GetType().Assembly.GetName().FullName}");
     }
 
-    internal void SetLocalizerManager(ILocalizerManager localizerManager)
+    public string ModuleDirectory => moduleDirectory;
+
+    public void SetLocalizer(INvmLocalizer localizer)
     {
-        _localizerManager = localizerManager;
+        _localizer = localizer;
     }
 
     private string Localize(IGameClient client, string key, params ReadOnlySpan<object?> args)
     {
-        if (_localizerManager is null)
+        if (_localizer is null)
             return args.Length > 0 ? string.Format(key, args.ToArray()) : key;
 
-        var localizer = _localizerManager.For(client);
-        return localizer.Text(key, args);
+        return _localizer.ForPlayer(client.SteamId, key, args.ToArray()!);
     }
 
     private string LocalizeWithPrefix(IGameClient client, string key, params ReadOnlySpan<object?> args)

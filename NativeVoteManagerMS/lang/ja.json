@@ -1,0 +1,7 @@
+{
+    "Nvm.Chat.Prefix": "{green}[NVM]{white}",
+    "Nvm.Command.NoVoteInProgress": "進行中の投票はありません。",
+    "Nvm.Command.NoMultiChoiceVote": "進行中の選択式投票はありません。",
+    "Nvm.Command.NotEnoughPermission": "{darkred}投票をキャンセルする権限がありません。",
+    "Nvm.Broadcast.Vote.Cancelled": "{lightgreen}{0}{white} が投票をキャンセルしました。"
+}

@@ -17,9 +17,9 @@ jobs:
       platforms: linux-x64 win-x64
 
       main-artifact-name: NativeVoteManagerMS
-      main-artifact-include: modules shared locales
+      main-artifact-include: modules shared
 
-      top-level-dirs: locales
+      custom-dirs: lang
 
       shared-dlls-to-remove: |
         NativeVoteManagerMS.Shared.dll

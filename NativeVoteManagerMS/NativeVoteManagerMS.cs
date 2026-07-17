@@ -2,7 +2,6 @@ using System;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Logging;
 using NativeVoteManagerMS.Shared;
-using Sharp.Modules.LocalizerManager.Shared;
 using Sharp.Shared;
 
 namespace NativeVoteManagerMS;
@@ -22,6 +21,7 @@ public class NativeVoteManagerMs : IModSharpModule
         ArgumentNullException.ThrowIfNull(coreConfiguration);
         ArgumentNullException.ThrowIfNull(sharedSystem);
         _sharedSystem = sharedSystem;
+        _dllPath = dllPath;
 
         var factory = _sharedSystem.GetLoggerFactory();
 
@@ -37,12 +37,13 @@ public class NativeVoteManagerMs : IModSharpModule
 
     private readonly ISharedSystem _sharedSystem;
     private readonly ILogger _logger;
+    private readonly string _dllPath;
 
     private NativeVoteManager _voteManager = null!;
 
     public bool Init()
     {
-        _voteManager = new NativeVoteManager(_sharedSystem, _logger);
+        _voteManager = new NativeVoteManager(_sharedSystem, _logger, _dllPath);
         _sharedSystem.GetModSharp().InstallGameListener(_voteManager);
         _sharedSystem.GetClientManager().InstallClientListener(_voteManager);
         _sharedSystem.GetClientManager().InstallCommandListener("vote", _voteManager.OnVoteCommand);
@@ -54,22 +55,6 @@ public class NativeVoteManagerMs : IModSharpModule
     public void PostInit()
     {
         _sharedSystem.GetSharpModuleManager().RegisterSharpModuleInterface<INativeVoteManager>(this, INativeVoteManager.ModSharpModuleIdentity, _voteManager);
-    }
-
-    public void OnAllModulesLoaded()
-    {
-        var localizerManager = _sharedSystem.GetSharpModuleManager()
-            .GetOptionalSharpModuleInterface<ILocalizerManager>(ILocalizerManager.Identity)?.Instance;
-
-        if (localizerManager is not null)
-        {
-            localizerManager.LoadLocaleFile("nativevotemanager");
-            _voteManager.SetLocalizerManager(localizerManager);
-        }
-        else
-        {
-            _logger.LogWarning("LocalizerManager not found. Using default English messages.");
-        }
     }
 
     public void Shutdown()

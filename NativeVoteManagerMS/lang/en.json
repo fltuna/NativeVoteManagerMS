@@ -1,0 +1,7 @@
+{
+    "Nvm.Chat.Prefix": "{green}[NVM]{white}",
+    "Nvm.Command.NoVoteInProgress": "No vote in progress.",
+    "Nvm.Command.NoMultiChoiceVote": "No multi-choice vote in progress.",
+    "Nvm.Command.NotEnoughPermission": "{darkred}You don't have permission to cancel votes.",
+    "Nvm.Broadcast.Vote.Cancelled": "{lightgreen}{0}{white} cancelled the vote."
+}

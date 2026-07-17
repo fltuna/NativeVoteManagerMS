@@ -7,7 +7,7 @@ A [ModSharp](https://github.com/Kxnrl/modsharp-public) module for Counter-Strike
 - **YesNo Vote** - Uses CS2's native vote UI (`CCSUsrMsg_VoteStart` / `CCSUsrMsg_VotePass` / `CCSUsrMsg_VoteFailed`)
 - **MultiChoice Vote** - Menu-based voting with configurable options
 - **Pluggable Architecture** - Menu system and permission system are abstracted via `IMenuCompat` / `IPermissionCompat`
-- **Localization** - Supports per-client localized messages via `LocalizerManager`
+- **Localization** - Per-client localized chat messages via per-language `lang/*.json` files, provided by a compat module (`NvmWulingCompat` bridges to Wuling's localizer)
 - **Commands** - `!cancelvote` (with permission check), `!revote` (reopen MultiChoice menu)
 - **Automatic Cleanup** - Vote state is cleaned up on map change
 
@@ -18,14 +18,15 @@ A [ModSharp](https://github.com/Kxnrl/modsharp-public) module for Counter-Strike
 | `NativeVoteManagerMS`        | Core module - vote lifecycle, commands, localization                                                      |
 | `NativeVoteManagerMS.Shared` | Public API - `INativeVoteManager`, types, compat interfaces                                               |
 | `NvmFPMCompat`               | FPM connector - implements `IMenuCompat` and `IPermissionCompat` using FPM's MenuManager and AdminManager |
+| `NvmWulingCompat`            | Wuling connector - implements `IMenuCompat` / `IPermissionCompat` and provides localization via Wuling's `IStringLocalizer` |
 | `NativeVoteExample`          | Example module demonstrating how to use the API                                                           |
 
 ## Dependencies
 
 - `ModSharp.Sharp.Shared` >= 2.1.118
-- `ModSharp.Sharp.Modules.LocalizerManager.Shared` >= 2.1.118
 - `ModSharp.Sharp.Modules.AdminManager.Shared` >= 2.1.118 (NvmFPMCompat only)
 - `ModSharp.Sharp.Modules.MenuManager.Shared` >= 2.1.118 (NvmFPMCompat only)
+- [Wuling](https://github.com/possession-community/Wuling) framework — only for `NvmWulingCompat` (localization / menu / permission)
 
 ## Installation
 
@@ -33,7 +34,8 @@ Grab the latest release zip from [Releases](https://github.com/possession-commun
 
 1. Deploy `NativeVoteManagerMS.dll` and `NativeVoteManagerMS.Shared.dll` to your ModSharp modules directory
 2. Deploy `NvmFPMCompat.dll` (or your own compat implementation)
-3. Copy `locales/nativevotemanager.json` to `{sharp}/locales/`
+
+Translations ship as `lang/*.json` next to `NativeVoteManagerMS.dll` (`modules/NativeVoteManagerMS/lang/`) — no extra step needed. Localized chat messages require a compat module that provides a localizer: install the [Wuling](https://github.com/possession-community/Wuling) framework together with `NvmWulingCompat.dll`, which reads those `lang/*.json` files. Without a localizer compat, raw localization keys are shown instead of translated text.
 
 ## For Plugin Developers (consuming the API)
 
@@ -70,7 +72,7 @@ public void OnAllModulesLoaded()
 
 ### YesNo Vote
 
-YesNo votes use CS2's native vote UI, which only accepts **SFUI translation keys** (strings starting with `#`). The game engine performs client-side translation — the plugin's `LocalizerManager` is **not** applied to `Title` / `Description`.
+YesNo votes use CS2's native vote UI, which only accepts **SFUI translation keys** (strings starting with `#`). The game engine performs client-side translation — the plugin's localizer is **not** applied to `Title` / `Description`.
 
 - `Title` — SFUI key for the vote question (e.g. `#SFUI_vote_kick_player`). Defaults to `#SFUI_Vote_None`.
 - `Description` — argument substituted into the Title template (`%s1%`). Leave empty for templates that take no argument.
