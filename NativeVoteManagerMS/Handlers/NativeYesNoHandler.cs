@@ -40,7 +40,7 @@ internal class NativeYesNoHandler : IVoteTypeHandler
 
         foreach (var participant in _participants)
         {
-            var description = _options.Description?.Resolve() ?? "";
+            var description = _options.Description?.Resolve(_options.CultureProvider?.Invoke(participant)) ?? "";
             SendVoteStartUm(participant, _options.Title, description);
         }
 
@@ -110,7 +110,7 @@ internal class NativeYesNoHandler : IVoteTypeHandler
     {
         foreach (var participant in _participants)
         {
-            var passDescription = _options.PassDescription?.Resolve() ?? "";
+            var passDescription = _options.PassDescription?.Resolve(_options.CultureProvider?.Invoke(participant)) ?? "";
             SendVotePassedUm(participant, _options.PassTitle, passDescription);
         }
 

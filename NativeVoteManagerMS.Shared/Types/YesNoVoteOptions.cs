@@ -1,4 +1,6 @@
+using System;
 using System.Collections.Generic;
+using System.Globalization;
 using Sharp.Shared.Objects;
 
 namespace NativeVoteManagerMS.Shared.Types;
@@ -49,4 +51,11 @@ public record YesNoVoteOptions
 
     /// <summary>Custom participant list. If null, all connected players will be included as a participant.</summary>
     public IReadOnlyList<IGameClient>? Participants { get; init; }
+
+    /// <summary>
+    /// Maps a participant to the culture used when resolving <see cref="Description"/> and
+    /// <see cref="PassDescription"/> for that participant. When null, strings resolve with
+    /// a null culture (the <see cref="LocalizedStringFunc"/>'s own default).
+    /// </summary>
+    public Func<IGameClient, CultureInfo?>? CultureProvider { get; init; }
 }
