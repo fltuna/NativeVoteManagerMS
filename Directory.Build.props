@@ -1,6 +1,6 @@
 <Project>
     <PropertyGroup>
-        <Version>0.0.7</Version>
+        <Version>0.0.8</Version>
         <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
         <Copyright>© 2025-2026 faketuna</Copyright>
         <RepositoryUrl>https://github.com/possession-community/NativeVoteManagerMS</RepositoryUrl>
