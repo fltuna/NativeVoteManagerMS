@@ -41,10 +41,22 @@ public class NativeVoteManager(ISharedSystem sharedSystem, ILogger logger, strin
 
     private string Localize(IGameClient client, string key, params ReadOnlySpan<object?> args)
     {
-        if (_localizer is null)
-            return args.Length > 0 ? string.Format(key, args.ToArray()) : key;
+        var argsArray = args.ToArray();
 
-        return _localizer.ForPlayer(client.SteamId, key, args.ToArray()!);
+        if (_localizer is null)
+        {
+            try
+            {
+                return argsArray.Length > 0 ? string.Format(key, argsArray) : key;
+            }
+            catch (FormatException)
+            {
+                return key;
+            }
+        }
+
+        var localizer = _localizer;
+        return ExternalCall.Run(logger, () => localizer.ForPlayer(client.SteamId, key, argsArray!), key);
     }
 
     private string LocalizeWithPrefix(IGameClient client, string key, params ReadOnlySpan<object?> args)
@@ -68,8 +80,7 @@ public class NativeVoteManager(ISharedSystem sharedSystem, ILogger logger, strin
         }
 
         var handler = new NativeYesNoHandler(sharedSystem, logger, options);
-        StartVote(handler);
-        return VoteInitiateResult.Success;
+        return StartVote(handler) ? VoteInitiateResult.Success : VoteInitiateResult.InternalError;
     }
 
     public VoteInitiateResult InitiateMultiChoiceVote(MultiChoiceVoteOptions options)
@@ -93,21 +104,32 @@ public class NativeVoteManager(ISharedSystem sharedSystem, ILogger logger, strin
             };
         }
 
-        var handler = new MultiChoiceHandler(customMenuCompat, options);
-        StartVote(handler);
-        return VoteInitiateResult.Success;
+        var handler = new MultiChoiceHandler(customMenuCompat, logger, options);
+        return StartVote(handler) ? VoteInitiateResult.Success : VoteInitiateResult.InternalError;
     }
 
-    private void StartVote(IVoteTypeHandler handler)
+    private bool StartVote(IVoteTypeHandler handler)
     {
         _activeHandler = handler;
         handler.OnAllVoted = () => EndVote();
-        handler.Start();
+
+        try
+        {
+            handler.Start();
+        }
+        catch (Exception e)
+        {
+            logger.LogError(e, "Vote start failed, rolling back");
+            Cleanup();
+            return false;
+        }
 
         if (handler.Duration > 0)
         {
             _voteTimerId = sharedSystem.GetModSharp().PushTimer(() => EndVote(), handler.Duration);
         }
+
+        return true;
     }
 
     public bool IsAnyVoteInProgress => _activeHandler is not null;
@@ -124,19 +146,31 @@ public class NativeVoteManager(ISharedSystem sharedSystem, ILogger logger, strin
 
         StopTimer();
 
-        var result = _activeHandler.BuildResult();
-        var passed = _activeHandler.CheckPassCondition(result);
-
-        if (passed)
+        // EndVote also runs inside timer/command callbacks, so nothing may escape here,
+        // and Cleanup must run even if a handler misbehaves.
+        try
         {
-            _activeHandler.OnVotePassed(result);
+            var result = _activeHandler.BuildResult();
+            var passed = _activeHandler.CheckPassCondition(result);
+
+            if (passed)
+            {
+                _activeHandler.OnVotePassed(result);
+            }
+            else
+            {
+                _activeHandler.OnVoteFailed(result);
+            }
         }
-        else
+        catch (Exception e)
         {
-            _activeHandler.OnVoteFailed(result);
+            logger.LogError(e, "Unhandled exception while ending vote");
+        }
+        finally
+        {
+            Cleanup();
         }
 
-        Cleanup();
         return VoteEndResult.Success;
     }
 
@@ -145,8 +179,20 @@ public class NativeVoteManager(ISharedSystem sharedSystem, ILogger logger, strin
         if (_activeHandler is null) return VoteCancelResult.NoVoteInProgress;
 
         StopTimer();
-        _activeHandler.OnVoteCancelled();
-        Cleanup();
+
+        try
+        {
+            _activeHandler.OnVoteCancelled();
+        }
+        catch (Exception e)
+        {
+            logger.LogError(e, "Unhandled exception while cancelling vote");
+        }
+        finally
+        {
+            Cleanup();
+        }
+
         return VoteCancelResult.Success;
     }
 
@@ -158,13 +204,15 @@ public class NativeVoteManager(ISharedSystem sharedSystem, ILogger logger, strin
             return ECommandAction.Handled;
         }
 
-        handler.MenuCompat.OpenMenu(client);
+        ExternalCall.Run(logger, () => handler.MenuCompat.OpenMenu(client));
         return ECommandAction.Handled;
     }
 
     public ECommandAction OnCancelVoteCommand(IGameClient client, StringCommand command)
     {
-        if (_defaultPermissionCompat is not null && !_defaultPermissionCompat.HasPermission(client, "nvm.vote.cancel"))
+        // On compat failure, fail closed: treat as no permission.
+        if (_defaultPermissionCompat is { } permissionCompat
+            && !ExternalCall.Run(logger, () => permissionCompat.HasPermission(client, "nvm.vote.cancel"), false))
         {
             client.Print(HudPrintChannel.Chat, LocalizeWithPrefix(client, "Nvm.Command.NotEnoughPermission"));
             return ECommandAction.Handled;
@@ -226,9 +274,27 @@ public class NativeVoteManager(ISharedSystem sharedSystem, ILogger logger, strin
 
     private void Cleanup()
     {
-        _activeHandler?.Close();
-        _activeHandler?.Cleanup();
+        var handler = _activeHandler;
         _activeHandler = null;
+        if (handler is null) return;
+
+        try
+        {
+            handler.Close();
+        }
+        catch (Exception e)
+        {
+            logger.LogError(e, "Unhandled exception while closing vote handler");
+        }
+
+        try
+        {
+            handler.Cleanup();
+        }
+        catch (Exception e)
+        {
+            logger.LogError(e, "Unhandled exception while cleaning up vote handler");
+        }
     }
 
     int IGameListener.ListenerVersion => IGameListener.ApiVersion;

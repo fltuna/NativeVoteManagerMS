@@ -40,11 +40,11 @@ internal class NativeYesNoHandler : IVoteTypeHandler
 
         foreach (var participant in _participants)
         {
-            var description = _options.Description?.Resolve(_options.CultureProvider?.Invoke(participant)) ?? "";
+            var description = ResolveDescription(_options.Description, participant, "Description.Resolve");
             SendVoteStartUm(participant, _options.Title, description);
         }
 
-        _options.VoteHandler.OnVoteInitiated();
+        ExternalCall.Run(_logger, _options.VoteHandler.OnVoteInitiated);
     }
 
     public void OnVoteCast(IGameClient chooser, bool isYes)
@@ -62,17 +62,20 @@ internal class NativeYesNoHandler : IVoteTypeHandler
         else
             _noVoters.Add(chooser);
 
-        var voteCastEvent = _sharedSystem.GetEventManager().CreateEvent("vote_cast", true);
-        if (voteCastEvent != null)
+        if (chooser.GetPlayerController() is { } chooserController)
         {
-            voteCastEvent.SetInt("vote_option", isYes ? 0 : 1);
-            voteCastEvent.SetInt("team", -1);
-            voteCastEvent.SetPlayer("userid", chooser.GetPlayerController()!);
-            voteCastEvent.Fire(false);
+            var voteCastEvent = _sharedSystem.GetEventManager().CreateEvent("vote_cast", true);
+            if (voteCastEvent != null)
+            {
+                voteCastEvent.SetInt("vote_option", isYes ? 0 : 1);
+                voteCastEvent.SetInt("team", -1);
+                voteCastEvent.SetPlayer("userid", chooserController);
+                voteCastEvent.Fire(false);
+            }
         }
 
         RefreshVotes();
-        _options.VoteHandler.OnChoice(chooser, isYes, GetState());
+        ExternalCall.Run(_logger, () => _options.VoteHandler.OnChoice(chooser, isYes, GetState()));
 
         if (HaveAllParticipantsVoted())
             OnAllVoted?.Invoke();
@@ -104,17 +107,17 @@ internal class NativeYesNoHandler : IVoteTypeHandler
     }
 
     public bool CheckPassCondition(VoteResult result) =>
-        (_options.PassCondition ?? VotePassConditions.Default())(result);
+        ExternalCall.Run(_logger, () => (_options.PassCondition ?? VotePassConditions.Default())(result), false);
 
     public void OnVotePassed(VoteResult result)
     {
         foreach (var participant in _participants)
         {
-            var passDescription = _options.PassDescription?.Resolve(_options.CultureProvider?.Invoke(participant)) ?? "";
+            var passDescription = ResolveDescription(_options.PassDescription, participant, "PassDescription.Resolve");
             SendVotePassedUm(participant, _options.PassTitle, passDescription);
         }
 
-        _options.VoteHandler.OnVotePassed(result);
+        ExternalCall.Run(_logger, () => _options.VoteHandler.OnVotePassed(result));
     }
 
     public void OnVoteFailed(VoteResult result)
@@ -122,7 +125,7 @@ internal class NativeYesNoHandler : IVoteTypeHandler
         foreach (var participant in _participants)
             SendVoteFailedUm(participant);
 
-        _options.VoteHandler.OnVoteFailed(result);
+        ExternalCall.Run(_logger, () => _options.VoteHandler.OnVoteFailed(result));
     }
 
     public void OnVoteCancelled()
@@ -130,7 +133,7 @@ internal class NativeYesNoHandler : IVoteTypeHandler
         foreach (var participant in _participants)
             SendVoteFailedUm(participant, NativeYesNoEndReason.NoReason);
 
-        _options.VoteHandler.OnVoteCancelled();
+        ExternalCall.Run(_logger, _options.VoteHandler.OnVoteCancelled);
     }
 
     public void OnParticipantDisconnected(IGameClient client)
@@ -142,7 +145,7 @@ internal class NativeYesNoHandler : IVoteTypeHandler
         _noVoters.Remove(client);
 
         RefreshVotes();
-        _options.VoteHandler.OnParticipantDisconnected(client, GetState());
+        ExternalCall.Run(_logger, () => _options.VoteHandler.OnParticipantDisconnected(client, GetState()));
     }
 
     public void Close()
@@ -154,6 +157,15 @@ internal class NativeYesNoHandler : IVoteTypeHandler
         _yesVoters.Clear();
         _noVoters.Clear();
         _participants.Clear();
+    }
+
+    private string ResolveDescription(LocalizedString? str, IGameClient participant, string callbackName)
+    {
+        if (str is not { } localized)
+            return "";
+
+        return ExternalCall.Run(_logger,
+            () => localized.Resolve(_options.CultureProvider?.Invoke(participant)) ?? "", "", callbackName);
     }
 
     private void RefreshVotes()
@@ -173,6 +185,9 @@ internal class NativeYesNoHandler : IVoteTypeHandler
 
     private void SendVoteStartUm(IGameClient target, string dispStrOverride = "", string detailStrOverride = "")
     {
+        if (target.GetPlayerController() is not { } controller)
+            return;
+
         var start = new CCSUsrMsg_VoteStart
         {
             Team = -1,
@@ -190,21 +205,27 @@ internal class NativeYesNoHandler : IVoteTypeHandler
         if (detailStrOverride != "")
             start.DetailsStr = detailStrOverride;
 
-        _sharedSystem.GetModSharp().SendNetMessage(new RecipientFilter(target.GetPlayerController()!), start);
+        _sharedSystem.GetModSharp().SendNetMessage(new RecipientFilter(controller), start);
     }
 
     private void SendVoteFailedUm(IGameClient target, NativeYesNoEndReason reason = NativeYesNoEndReason.NotEnoughPlayersVoted)
     {
+        if (target.GetPlayerController() is not { } controller)
+            return;
+
         var failed = new CCSUsrMsg_VoteFailed
         {
             Reason = (int)reason,
             Team = -1,
         };
-        _sharedSystem.GetModSharp().SendNetMessage(new RecipientFilter(target.GetPlayerController()!), failed);
+        _sharedSystem.GetModSharp().SendNetMessage(new RecipientFilter(controller), failed);
     }
 
     private void SendVotePassedUm(IGameClient target, string dispStrOverride = "", string detailStrOverride = "")
     {
+        if (target.GetPlayerController() is not { } controller)
+            return;
+
         var passed = new CCSUsrMsg_VotePass
         {
             Team = -1,
@@ -219,6 +240,6 @@ internal class NativeYesNoHandler : IVoteTypeHandler
         if (detailStrOverride != "")
             passed.DetailsStr = detailStrOverride;
 
-        _sharedSystem.GetModSharp().SendNetMessage(new RecipientFilter(target.GetPlayerController()!), passed);
+        _sharedSystem.GetModSharp().SendNetMessage(new RecipientFilter(controller), passed);
     }
 }

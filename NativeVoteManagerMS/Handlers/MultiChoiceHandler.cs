@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using Microsoft.Extensions.Logging;
 using NativeVoteManagerMS.Shared;
 using NativeVoteManagerMS.Shared.Types;
 using Sharp.Shared.Objects;
@@ -10,13 +11,15 @@ namespace NativeVoteManagerMS.Handlers;
 internal class MultiChoiceHandler : IVoteTypeHandler
 {
     internal readonly IMenuCompat MenuCompat;
+    private readonly ILogger _logger;
     private readonly MultiChoiceVoteOptions _options;
     private readonly Dictionary<VoteContent, List<IGameClient>> _votes = new();
     private readonly List<IGameClient> _participants = new();
 
-    public MultiChoiceHandler(IMenuCompat menuCompat, MultiChoiceVoteOptions options)
+    public MultiChoiceHandler(IMenuCompat menuCompat, ILogger logger, MultiChoiceVoteOptions options)
     {
         MenuCompat = menuCompat;
+        _logger = logger;
         _options = options;
     }
 
@@ -32,13 +35,15 @@ internal class MultiChoiceHandler : IVoteTypeHandler
             _votes[content] = new List<IGameClient>();
         }
 
+        // OnChoice/SetVoteOptions failures are fatal for the whole vote — let them
+        // propagate so NativeVoteManager.StartVote can roll back and report InternalError.
         MenuCompat.OnChoice = OnPlayerChoice;
         MenuCompat.SetVoteOptions(_options);
         foreach (var pa in _participants)
         {
-            MenuCompat.OpenMenu(pa);
+            ExternalCall.Run(_logger, () => MenuCompat.OpenMenu(pa));
         }
-        _options.VoteHandler.OnVoteInitiated();
+        ExternalCall.Run(_logger, _options.VoteHandler.OnVoteInitiated);
     }
 
     private void OnPlayerChoice(IGameClient chooser, VoteContent content)
@@ -53,8 +58,8 @@ internal class MultiChoiceHandler : IVoteTypeHandler
             list.Add(chooser);
         }
 
-        MenuCompat.CloseMenu(chooser);
-        _options.VoteHandler.OnChoice(chooser, content, GetState());
+        ExternalCall.Run(_logger, () => MenuCompat.CloseMenu(chooser));
+        ExternalCall.Run(_logger, () => _options.VoteHandler.OnChoice(chooser, content, GetState()));
 
         if (HaveAllParticipantsVoted())
             OnAllVoted?.Invoke();
@@ -95,16 +100,16 @@ internal class MultiChoiceHandler : IVoteTypeHandler
     }
 
     public bool CheckPassCondition(VoteResult result) =>
-        (_options.PassCondition ?? VotePassConditions.Default())(result);
+        ExternalCall.Run(_logger, () => (_options.PassCondition ?? VotePassConditions.Default())(result), false);
 
     public void OnVotePassed(VoteResult result) =>
-        _options.VoteHandler.OnVotePassed(result);
+        ExternalCall.Run(_logger, () => _options.VoteHandler.OnVotePassed(result));
 
     public void OnVoteFailed(VoteResult result) =>
-        _options.VoteHandler.OnVoteFailed(result);
+        ExternalCall.Run(_logger, () => _options.VoteHandler.OnVoteFailed(result));
 
     public void OnVoteCancelled() =>
-        _options.VoteHandler.OnVoteCancelled();
+        ExternalCall.Run(_logger, _options.VoteHandler.OnVoteCancelled);
 
     public bool HaveAllParticipantsVoted()
         => _participants.Count > 0 && _votes.Values.Sum(v => v.Count) >= _participants.Count;
@@ -119,21 +124,21 @@ internal class MultiChoiceHandler : IVoteTypeHandler
             voters.Remove(client);
         }
 
-        _options.VoteHandler.OnParticipantDisconnected(client, GetState());
+        ExternalCall.Run(_logger, () => _options.VoteHandler.OnParticipantDisconnected(client, GetState()));
     }
 
     public void Close()
     {
         foreach (var participant in _participants)
         {
-            MenuCompat.CloseMenu(participant);
+            ExternalCall.Run(_logger, () => MenuCompat.CloseMenu(participant));
         }
     }
 
     public void Cleanup()
     {
-        MenuCompat.OnChoice = (_, _) => { };
-        MenuCompat.Cleanup();
+        ExternalCall.Run(_logger, () => MenuCompat.OnChoice = (_, _) => { });
+        ExternalCall.Run(_logger, MenuCompat.Cleanup);
         _votes.Clear();
         _participants.Clear();
     }
